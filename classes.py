@@ -1,118 +1,123 @@
-import requests
 import psycopg2
+import requests
+from config import config
+from pprint import pprint
 
-password = input("Please,enter your password for Database \n-->:")
 
-class HH():
-    API = "https://api.hh.ru/employers/"
-    HEADERS = {
-             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/110.0"
-         }
-    employers_dict = {'Yandex': '5974128', 'Sberbank': '3529', 'Tinkoff': '78638'}
+class HeadHunter:
+    """Данный класс создает запрос на API hh.ru"""
 
-    def get_request(self, employer_id) -> dict:
-        params = {
-            "page": 1,
-            "per_page": 100,
-            "employer_id": employer_id,
-            "only_with_salary": True,
-            "area": 113,
-            "only_with_vacancies": True
-        }
-        return requests.get("https://api.hh.ru/vacancies/", params=params, headers=self.HEADERS).json()['items']
+    def get_request(self) -> list[dict]:
+        """Данный метод делай запрос по api и берет id компаний"""
 
-    def get_vacancies(self):
-        vacancies_list = []
-        for emp in self.employers_dict:
-            emp_vacancies = self.get_request(self.employers_dict[emp])
-            for vac in emp_vacancies:
-                if vac['salary']['from'] is None:
-                    salary = 0
-                else:
-                    salary = vac['salary']['from']
-                vacancies_list.append({'url': vac['alternate_url'], 'salary': salary, 'vacancy_name': vac['name'], 'employer': emp})
-        return vacancies_list
+        company_list = []
+        employers_list = ['Ростех', 'OCS Distribution',  # Список 10 компаний для работы
+                          'Softline', 'IBS', 'Afterlogic ',
+                          'Т1', '1С',
+                          'Лаборатория Касперского', '3Logic Group',
+                          'Айтеко']
+        for item in employers_list:
+            request = requests.get("https://api.hh.ru/employers",
+                                   params={
+                                       'text': item,  # Названия компании(Работодателя)
+                                       'per_page': 1,  # Количество компаний
+                                       'area': 113,  # Регион Российской Федерации
+                                       'only_with_vacancies': 'true'  # Запрос только с ваканииями
+                                   }
+                                   ).json()['items']
+            for item2 in request:
+                company_list.append(item2)
+        return company_list
 
-    def employers_to_db(self):
-        with psycopg2.connect(
-                host="localhost",
-                database="vacancies_from_HH",
-                user="postgres",
-                password=password
-        ) as conn:
-            with conn.cursor() as cur:
-                for emp in self.employers_dict:
-                    cur.execute(f"INSERT INTO companies values ('{int(self.employers_dict[emp])}', '{emp}')")
+    def get_id(self, id) -> list[dict]:
+        """Используя id компаний этом метод выводит список всех вакансий"""
+        vacancy_list = []
+        for item in id:
+            for item2 in range(5):
+                request = requests.get(f'https://api.hh.ru/vacancies?employer_id={item["id"]}',
+                                       params={'page': item2, 'per_page': 100}).json()['items']
+                for item3 in request:
+                    vacancy_list.append(item3)
+        return vacancy_list
 
-    def vacancies_to_db(self):
-        with psycopg2.connect(
-                host="localhost",
-                database="vacancies_from_HH",
-                user="postgres",
-                password=password
-        ) as conn:
-            with conn.cursor() as cur:
-                for vac in self.get_vacancies():
-                    cur.execute(f"INSERT INTO vacancies(vacancy_name, salary, company_name, vacancy_url) values ('{vac['vacancy_name']}', '{int(vac['salary'])}', '{vac['employer']}', '{vac['url']}')")
 
-class DBManager():
+class DataBase:
+    """Данный класс используя запрос из hh загружает данные в Базу Данных """
+    def __init__(self):
+        self.config = config()
 
-    def get_companies_and_vacancies_count(self):
-        with psycopg2.connect(
-                host="localhost",
-                database="vacancies_from_HH",
-                user="postgres",
-                password=password
-        ) as conn:
-            with conn.cursor() as cur:
-                cur.execute('select company_name, count(vacancy_name) from vacancies_from_HH group by company_name')
-                answer = cur.fetchall()
-        return answer
 
-    def get_all_vacancies(self):
-        with psycopg2.connect(
-                host="localhost",
-                database="vacancies_from_HH",
-                user="postgres",
-                password=password
-        ) as conn:
-            with conn.cursor() as cur:
-                cur.execute('select * from vacancies_from_HH')
-                answer = cur.fetchall()
-        return answer
+    def create_database(self):
+        """Создание базы данных и таблиц для сохранения данных."""
 
-    def get_avg_salary(self):
-        with psycopg2.connect(
-                host="localhost",
-                database="vacancies_from_HH",
-                user="postgres",
-                password=password
-        ) as conn:
-            with conn.cursor() as cur:
-                cur.execute('select avg(salary) from vacancies_from_HH')
-                answer = cur.fetchall()
-        return answer
+        conn = psycopg2.connect(dbname='postgres', **self.config)
+        conn.autocommit = True
+        cur = conn.cursor()
 
-    def get_vacancies_with_higher_salary(self):
-        with psycopg2.connect(
-                host="localhost",
-                database="vacancies_from_HH",
-                user="postgres",
-                password=password
-        ) as conn:
-            with conn.cursor() as cur:
-                cur.execute('select vacancy_name from vacancies_from_HH where salary > (select avg(salary) from vacancies_from_HH)')
-                answer = cur.fetchall()
-        return answer
+        cur.execute("DROP DATABASE course_work")
+        cur.execute("CREATE DATABASE course_work")
 
-    def get_vacancies_with_keyword(self, keyword):
-        with psycopg2.connect(
-                host="localhost",
-                database="vacancies_from_HH",
-                user="postgres",
-                password=password
-        ) as conn:
-            with conn.cursor() as cur:
-                cur.execute(f"select vacancy_name from vacancies_from_HH where vacancy_name like '%{keyword}%'")
-                answer = cur.fetchall()
-        return
+        cur.close()
+        conn.close()
+
+        conn = psycopg2.connect(dbname='course_work', **self.config)
+
+        with conn.cursor() as cur:
+            cur.execute("""
+                   CREATE TABLE company (
+                       company_id INTEGER,
+                       company_name VARCHAR(255) NOT NULL,
+                       company_open_vacansies INTEGER
+                   )
+               """)
+
+        with conn.cursor() as cur:
+            cur.execute("""
+                   CREATE TABLE vacancy (
+                       company_id INTEGER,
+                       vacancies VARCHAR(255) NOT NULL,
+                       salary INTEGER,
+                       url_vacancy TEXT
+                   )
+               """)
+        conn.commit()
+        conn.close()
+
+    def save_data_to_database(self, companies, vacancies):
+        """Сохранение данных в таблицы."""
+
+        conn = psycopg2.connect(dbname='course_work', **self.config)
+
+        with conn.cursor() as cur:
+            for company in companies:
+                company_id = company['id']
+                company_name = company['name']
+                company_vacancies = company['open_vacancies']
+                cur.execute(
+                    """
+                    INSERT INTO company(company_id, company_name, company_open_vacansies)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (company_id, company_name, company_vacancies)
+                )
+                for vacancy in vacancies:
+                    id = vacancy['employer']['id']
+                    vacancy_name = vacancy['name']
+                    url_vacancy = vacancy['alternate_url']
+                    salary = vacancy['salary']
+                    if salary is not None:
+                        if salary.get('from') is None:
+                            salary = salary['to']
+                        else:
+                            salary = salary['from']
+                    else:
+                        salary = 0
+                    cur.execute(
+                        """
+                        INSERT INTO vacancy(company_id, vacancies, salary, url_vacancy)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (id, vacancy_name, salary, url_vacancy)
+                    )
+        conn.commit()
+        conn.close()
