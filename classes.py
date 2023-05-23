@@ -1,6 +1,11 @@
 import psycopg2
 import requests
 
+db_password = input("Greetings, Sir! I am Jarvis, your trusted job search assistant for today."
+                    "\n Sir, Please,enter your password for Database \n-->:")
+
+
+
 
 class HeadHunter:
     """Creating Class HeadHunter"""
@@ -39,7 +44,7 @@ class HeadHunter:
         return vacancy_list
 
 
-db_password = input("Please,enter your password for Database \n-->:")
+
 
 
 class DataBase:
@@ -62,9 +67,9 @@ class DataBase:
         except psycopg2.errors.DuplicateDatabase:
             cur.execute(drop_sql)
             cur.execute(sql)
-            print('Database has been recreated successfully')
+            print('Sir, its Jarvis. The database has been successfully recreated.')
         else:
-            print("Database created successfully")
+            print("Sir, Database created successfully")
 
         cur.close()
         conn.close()
@@ -97,7 +102,7 @@ class DataBase:
         """Saving data to Database."""
 
         conn = psycopg2.connect(host='Localhost', database='hh_database', user='postgres',
-                                password=input("Please,enter your password for Database \n-->:"))
+                                password=db_password)
 
         with conn.cursor() as cur:
             for company in companies:
@@ -139,7 +144,7 @@ class DBManager:
 
     def connect_to_db(self):
         """Connecting to Database"""
-        conn = psycopg2.connect(host='Localhost', database='HH_database', user='postgres',
+        conn = psycopg2.connect(host='Localhost', database='hh_database', user='postgres',
                                 password=db_password)
         return conn
 
@@ -198,7 +203,7 @@ class DBManager:
         conn.close()
 
     def get_vacancies_with_keyword(self, word) -> None:
-        """Getting a list of vacancies with a similar word"""
+        """Getting a list of vacancies with keyword"""
         conn = self.connect_to_db()
         with conn.cursor() as cur:
             cur.execute(f"""SELECT company_name, vacancies, salary, url_vacancy  
