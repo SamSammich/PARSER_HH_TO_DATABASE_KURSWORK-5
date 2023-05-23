@@ -3,10 +3,10 @@ import requests
 
 
 class HeadHunter:
-    """Данный класс создает запрос на API hh.ru"""
+    """Creating Class HeadHunter"""
 
     def get_request(self):
-        """Данный метод делай запрос по api и берет id компаний"""
+        """Getting company IDs"""
 
         company_list = []
         employers_list = ['Яндекс', 'Альфа-Банк',  # Список 10 компаний для работы
@@ -28,7 +28,7 @@ class HeadHunter:
         return company_list
 
     def get_id(self, id) -> list[dict]:
-        """Используя id компаний этом метод выводит список всех вакансий"""
+        """Using ID getting all vacancies"""
         vacancy_list = []
         for item in id:
             for i in range(5):
@@ -43,11 +43,11 @@ db_password = input("Please,enter your password for Database \n-->:")
 
 
 class DataBase:
-    """Данный класс используя запрос из hh загружает данные в Базу Данных """
+    """This class creating Database and filling it"""
 
     def create_database(self):
 
-        """Создание базы данных и таблиц для сохранения данных."""
+        """Creating Database and Tables."""
         conn = psycopg2.connect(host='Localhost', database='Test', user='postgres',
                                 password=db_password)
         conn.autocommit = True
@@ -77,7 +77,7 @@ class DataBase:
                    CREATE TABLE company (
                        company_id INTEGER,
                        company_name VARCHAR(255) NOT NULL,
-                       company_open_vacansies INTEGER
+                       company_open_vacancies INTEGER
                    )
                """)
 
@@ -94,7 +94,7 @@ class DataBase:
         conn.close()
 
     def save_data_to_database(self, companies, vacancies):
-        """Сохранение данных в таблицы."""
+        """Saving data to Database."""
 
         conn = psycopg2.connect(host='Localhost', database='hh_database', user='postgres',
                                 password=input("Please,enter your password for Database \n-->:"))
@@ -106,7 +106,7 @@ class DataBase:
                 company_vacancies = company['open_vacancies']
                 cur.execute(
                     """
-                    INSERT INTO company(company_id, company_name, company_open_vacansies)
+                    INSERT INTO company(company_id, company_name, company_open_vacancies)
                     VALUES (%s, %s, %s)
                     """,
                     (company_id, company_name, company_vacancies)
@@ -135,19 +135,19 @@ class DataBase:
 
 
 class DBManager:
-    """Класс подключаться к БД Postgres для вывода информации """
+    """This class links to the Database and handles information."""
 
     def connect_to_db(self):
-        """Формирует запрос в Базе Данных"""
+        """Connecting to Database"""
         conn = psycopg2.connect(host='Localhost', database='HH_database', user='postgres',
-                                password=input("Please,enter your password for Database \n-->:"))
+                                password=db_password)
         return conn
 
     def get_companies_and_vacancies_count(self) -> None:
-        """Получает список всех компаний и количество вакансий у каждой компании."""
+        """Getting a list of companies and available positions they have """
         conn = self.connect_to_db()
         with conn.cursor() as cur:
-            cur.execute("SELECT company_name, company_open_vacansies FROM company")
+            cur.execute("SELECT company_name, company_open_vacancies FROM company")
             rows = cur.fetchall()
             for row in rows:
                 print(row)
@@ -156,7 +156,7 @@ class DBManager:
         conn.close()
 
     def get_all_vacancies(self) -> None:
-        """Получает список всех вакансий с указанием названия компании, названия вакансии и зарплаты и ссылки на вакансию"""
+        """Getting a list of all vacancies with the company name, vacancy name, salary and a link to the vacancy"""
         conn = self.connect_to_db()
         with conn.cursor() as cur:
             cur.execute("""SELECT vacancies, company_name, salary, url_vacancy
@@ -170,7 +170,7 @@ class DBManager:
         conn.close()
 
     def get_avg_salary(self) -> None:
-        """Получает среднюю зарплату по вакансиям."""
+        """Getting an average salary for vacancies."""
         conn = self.connect_to_db()
         with conn.cursor() as cur:
             cur.execute("""SELECT ROUND(AVG(salary), 2) FROM vacancy
@@ -183,7 +183,7 @@ class DBManager:
         conn.close()
 
     def get_vacancies_with_higher_salary(self) -> None:
-        """Получает список всех вакансий, у которых зарплата выше средней по всем вакансиям."""
+        """Getting a list of all jobs that have a salary above than average salary"""
         conn = self.connect_to_db()
         with conn.cursor() as cur:
             cur.execute("""SELECT company_name, vacancies, salary, url_vacancy  
@@ -198,7 +198,7 @@ class DBManager:
         conn.close()
 
     def get_vacancies_with_keyword(self, word) -> None:
-        """Получает список всех вакансий, в названии которых содержатся переданные в метод слова"""
+        """Getting a list of vacancies with a similar word"""
         conn = self.connect_to_db()
         with conn.cursor() as cur:
             cur.execute(f"""SELECT company_name, vacancies, salary, url_vacancy  
