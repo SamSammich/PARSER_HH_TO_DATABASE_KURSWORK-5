@@ -1,28 +1,26 @@
 import psycopg2
 import requests
-from config import config
-from pprint import pprint
 
 
 class HeadHunter:
     """Данный класс создает запрос на API hh.ru"""
 
-    def get_request(self) -> list[dict]:
+    def get_request(self):
         """Данный метод делай запрос по api и берет id компаний"""
 
         company_list = []
-        employers_list = ['Ростех', 'OCS Distribution',  # Список 10 компаний для работы
-                          'Softline', 'IBS', 'Afterlogic ',
+        employers_list = ['Яндекс', 'Альфа-Банк',  # Список 10 компаний для работы
+                          'VK', 'IBS', 'Авито ',
                           'Т1', '1С',
-                          'Лаборатория Касперского', '3Logic Group',
-                          'Айтеко']
+                          'Лаборатория Касперского', 'Тензор',
+                          'Билайн']
         for item in employers_list:
             request = requests.get("https://api.hh.ru/employers",
                                    params={
                                        'text': item,  # Названия компании(Работодателя)
                                        'per_page': 1,  # Количество компаний
                                        'area': 113,  # Регион Российской Федерации
-                                       'only_with_vacancies': 'true'  # Запрос только с ваканииями
+                                       'only_with_vacancies': 'true'  # Запрос только с вакансиями
                                    }
                                    ).json()['items']
             for item2 in request:
@@ -33,34 +31,46 @@ class HeadHunter:
         """Используя id компаний этом метод выводит список всех вакансий"""
         vacancy_list = []
         for item in id:
-            for item2 in range(5):
+            for i in range(5):
                 request = requests.get(f'https://api.hh.ru/vacancies?employer_id={item["id"]}',
-                                       params={'page': item2, 'per_page': 100}).json()['items']
-                for item3 in request:
-                    vacancy_list.append(item3)
+                                       params={'page': i, 'per_page': 10}).json()['items']
+                for req in request:
+                    vacancy_list.append(req)
         return vacancy_list
+
+
+db_password = input("Please,enter your password for Database \n-->:")
 
 
 class DataBase:
     """Данный класс используя запрос из hh загружает данные в Базу Данных """
-    def __init__(self):
-        self.config = config()
-
 
     def create_database(self):
-        """Создание базы данных и таблиц для сохранения данных."""
 
-        conn = psycopg2.connect(dbname='postgres', **self.config)
+        """Создание базы данных и таблиц для сохранения данных."""
+        conn = psycopg2.connect(host='Localhost', database='Test', user='postgres',
+                                password=db_password)
         conn.autocommit = True
         cur = conn.cursor()
 
-        cur.execute("DROP DATABASE course_work")
-        cur.execute("CREATE DATABASE course_work")
+        try:
+            # команда для создания базы данных
+            sql = "CREATE DATABASE hh_database"
+            drop_sql = "DROP DATABASE hh_database"
+            # выполняем код sql
+            cur.execute(sql)
+        except psycopg2.errors.DuplicateDatabase:
+            cur.execute(drop_sql)
+            cur.execute(sql)
+            print('Database has been recreated successfully')
+        else:
+            print("Database created successfully")
 
         cur.close()
         conn.close()
 
-        conn = psycopg2.connect(dbname='course_work', **self.config)
+        conn = psycopg2.connect(host='Localhost', database='hh_database', user='postgres',
+                                password=db_password)
 
         with conn.cursor() as cur:
             cur.execute("""
@@ -86,7 +96,8 @@ class DataBase:
     def save_data_to_database(self, companies, vacancies):
         """Сохранение данных в таблицы."""
 
-        conn = psycopg2.connect(dbname='course_work', **self.config)
+        conn = psycopg2.connect(host='Localhost', database='hh_database', user='postgres',
+                                password=input("Please,enter your password for Database \n-->:"))
 
         with conn.cursor() as cur:
             for company in companies:
@@ -119,5 +130,83 @@ class DataBase:
                         """,
                         (id, vacancy_name, salary, url_vacancy)
                     )
+        conn.commit()
+        conn.close()
+
+
+class DBManager:
+    """Класс подключаться к БД Postgres для вывода информации """
+
+    def connect_to_db(self):
+        """Формирует запрос в Базе Данных"""
+        conn = psycopg2.connect(host='Localhost', database='HH_database', user='postgres',
+                                password=input("Please,enter your password for Database \n-->:"))
+        return conn
+
+    def get_companies_and_vacancies_count(self) -> None:
+        """Получает список всех компаний и количество вакансий у каждой компании."""
+        conn = self.connect_to_db()
+        with conn.cursor() as cur:
+            cur.execute("SELECT company_name, company_open_vacansies FROM company")
+            rows = cur.fetchall()
+            for row in rows:
+                print(row)
+
+        conn.commit()
+        conn.close()
+
+    def get_all_vacancies(self) -> None:
+        """Получает список всех вакансий с указанием названия компании, названия вакансии и зарплаты и ссылки на вакансию"""
+        conn = self.connect_to_db()
+        with conn.cursor() as cur:
+            cur.execute("""SELECT vacancies, company_name, salary, url_vacancy
+                        FROM vacancy
+                        JOIN company USING(company_id)""")
+            rows = cur.fetchall()
+            for row in rows:
+                print(row)
+
+        conn.commit()
+        conn.close()
+
+    def get_avg_salary(self) -> None:
+        """Получает среднюю зарплату по вакансиям."""
+        conn = self.connect_to_db()
+        with conn.cursor() as cur:
+            cur.execute("""SELECT ROUND(AVG(salary), 2) FROM vacancy
+                           WHERE salary NOT IN ('0')""")
+            rows = cur.fetchall()
+            for row in rows:
+                print(row)
+
+        conn.commit()
+        conn.close()
+
+    def get_vacancies_with_higher_salary(self) -> None:
+        """Получает список всех вакансий, у которых зарплата выше средней по всем вакансиям."""
+        conn = self.connect_to_db()
+        with conn.cursor() as cur:
+            cur.execute("""SELECT company_name, vacancies, salary, url_vacancy  
+                            FROM vacancy
+                            JOIN company USING(company_id)
+                           WHERE salary > (SELECT AVG(salary) FROM vacancy WHERE salary != 0)""")
+            rows = cur.fetchall()
+            for row in rows:
+                print(row)
+
+        conn.commit()
+        conn.close()
+
+    def get_vacancies_with_keyword(self, word) -> None:
+        """Получает список всех вакансий, в названии которых содержатся переданные в метод слова"""
+        conn = self.connect_to_db()
+        with conn.cursor() as cur:
+            cur.execute(f"""SELECT company_name, vacancies, salary, url_vacancy  
+                            FROM vacancy
+                            JOIN company USING(company_id)
+                            WHERE vacancies LIKE '%{word.capitalize()}%'""")
+            rows = cur.fetchall()
+            for row in rows:
+                print(row)
         conn.commit()
         conn.close()
