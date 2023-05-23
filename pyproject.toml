@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "parser-hh-to-database-kurswork-5"
+version = "0.1.0"
+description = ""
+authors = ["Sam(RYZEN-PC) <abdusamadov55@gamil.com>"]
+readme = "README.md"
+packages = [{include = "parser_hh_to_database_kurswork_5"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
